@@ -1,0 +1,6 @@
+[general]
+jll_pkg_name = "Giflib_jll"
+library_name = "libgif"
+library_names = {"gif_lib.h" = "libgif"}
+output_file_path = "../lib/LibGif.jl"
+module_name = "LibGif"
