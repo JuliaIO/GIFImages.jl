@@ -1,0 +1,8 @@
+name = "GIFImages"
+uuid = "7064036c-d33e-4a25-b247-cf6150d8ad81"
+authors = ["Ashwani Rathee <ab669522@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+CEnum = "fa961155-64e5-5f13-b03f-caf6b980ea82"
+Giflib_jll = "59f7168a-df46-5410-90c8-f2779963d0ec"
