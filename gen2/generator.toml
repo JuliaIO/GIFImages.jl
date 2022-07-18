@@ -1,0 +1,6 @@
+[general]
+jll_pkg_name = "libgifextra_jll"
+library_name = "libgifextra"
+library_names = {"libgifextra.h" = "libgifextra"}
+output_file_path = "../lib/LibGifExtra.jl"
+module_name = "LibGifExtra"
