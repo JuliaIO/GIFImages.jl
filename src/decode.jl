@@ -3,9 +3,27 @@ using ColorVectorSpace
 using FixedPointNumbers
 using FileIO
 
-function gif_decode(path)
+"""
+    gif_decode(filepath::AbstractString)
+
+Decode the GIF image as colorant matrix. The source data needs to be a filename.
+
+#### Arguments
+- `filepath::AbstractString` : Path to the gif file
+
+#### Examples
+```jldoctest
+julia> using GIFImages, Downloads
+
+julia> path = "test/data/fire.gif"
+"test/data/fire.gif"
+
+julia> img = gif_decode(path)
+60×30×33 Array{RGB{N0f8},3} with eltype RGB{N0f8}
+"""
+function gif_decode(filepath::AbstractString)
     Error = Cint(0)
-    gif = LibGif.DGifOpenFileName(path, Ref(Error))
+    gif = LibGif.DGifOpenFileName(filepath, Ref(Error))
 
     try
         gif == C_NULL && error("failed to open the gif file: null pointer")
