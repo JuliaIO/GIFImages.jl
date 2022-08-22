@@ -14,6 +14,7 @@ decode the GIF image as colorant matrix. The source data needs to be a filename.
 
 #### Arguments
 - `filepath::AbstractString` : Path to the gif file
+- `use_localpalette::Bool=true` : While decoding, using this argument use of local color map or global color map can be specified
 
 #### Examples
 ```jldoctest

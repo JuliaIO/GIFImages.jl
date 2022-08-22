@@ -10,7 +10,7 @@ Decode the GIF image as colorant matrix. The source data needs to be a filename.
 
 #### Arguments
 - `filepath::AbstractString` : Path to the gif file
-- `use_localpalette::Bool=true` : While decoding, using this argument use of local color map or global map can be specified
+- `use_localpalette::Bool=true` : While decoding, using this argument use of local colormap or global colormap can be specified
 
 #### Examples
 ```jldoctest
@@ -56,10 +56,13 @@ function gif_decode(filepath::AbstractString; use_localpalette=false)
             if desc.ColorMap !=C_NULL && use_localpalette == true
                 localcolormap = unsafe_load(desc.ColorMap)
                 @debug "Image $i : using Local ColorMap with $(localcolormap.ColorCount) colors."
-                palette = unsafe_wrap(Array, localcolormap.Colors, localcolormap.ColorCount)
+                lpalette = unsafe_wrap(Array, localcolormap.Colors, localcolormap.ColorCount)
+                colortypes = map(x -> lpalette[x+1], img)
+            else
+                colortypes = map(x -> palette[x+1], img)
             end
 
-            colortypes = map(x -> palette[x+1], img)
+            
             res = map(x -> RGB{N0f8}(x.Red / 255, x.Green / 255, x.Blue / 255), colortypes)
             res = reshape(res, Int(loaded_gif.SWidth), Int(loaded_gif.SHeight))
             res = res'
