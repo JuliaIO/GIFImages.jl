@@ -4,3 +4,9 @@ library_name = "libgif"
 library_names = {"gif_lib.h" = "libgif"}
 output_file_path = "../lib/LibGif.jl"
 module_name = "LibGif"
+
+[codegen]
+field_access_method_list = [
+    "GifFileType",
+    "SavedImage"
+] 

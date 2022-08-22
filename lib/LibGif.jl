@@ -49,6 +49,18 @@ struct SavedImage
     ExtensionBlockCount::Cint
     ExtensionBlocks::Ptr{ExtensionBlock}
 end
+function Base.getproperty(x::Ptr{SavedImage}, f::Symbol)
+    f === :ImageDesc && return Ptr{GifImageDesc}(x + 0)
+    f === :RasterBits && return Ptr{Ptr{GifByteType}}(x + 32)
+    f === :ExtensionBlockCount && return Ptr{Cint}(x + 40)
+    f === :ExtensionBlocks && return Ptr{Ptr{ExtensionBlock}}(x + 48)
+    return getfield(x, f)
+end
+
+function Base.setproperty!(x::Ptr{SavedImage}, f::Symbol, v)
+    unsafe_store!(getproperty(x, f), v)
+end
+
 
 struct GifFileType
     SWidth::GifWord
@@ -66,6 +78,28 @@ struct GifFileType
     UserData::Ptr{Cvoid}
     Private::Ptr{Cvoid}
 end
+function Base.getproperty(x::Ptr{GifFileType}, f::Symbol)
+    f === :SWidth && return Ptr{GifWord}(x + 0)
+    f === :SHeight && return Ptr{GifWord}(x + 4)
+    f === :SColorResolution && return Ptr{GifWord}(x + 8)
+    f === :SBackGroundColor && return Ptr{GifWord}(x + 12)
+    f === :AspectByte && return Ptr{GifByteType}(x + 16)
+    f === :SColorMap && return Ptr{Ptr{ColorMapObject}}(x + 24)
+    f === :ImageCount && return Ptr{Cint}(x + 32)
+    f === :Image && return Ptr{GifImageDesc}(x + 40)
+    f === :SavedImages && return Ptr{Ptr{SavedImage}}(x + 72)
+    f === :ExtensionBlockCount && return Ptr{Cint}(x + 80)
+    f === :ExtensionBlocks && return Ptr{Ptr{ExtensionBlock}}(x + 88)
+    f === :Error && return Ptr{Cint}(x + 96)
+    f === :UserData && return Ptr{Ptr{Cvoid}}(x + 104)
+    f === :Private && return Ptr{Ptr{Cvoid}}(x + 112)
+    return getfield(x, f)
+end
+
+function Base.setproperty!(x::Ptr{GifFileType}, f::Symbol, v)
+    unsafe_store!(getproperty(x, f), v)
+end
+
 
 @cenum GifRecordType::UInt32 begin
     UNDEFINED_RECORD_TYPE = 0

@@ -143,6 +143,12 @@ uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
 deps = ["Artifacts", "Libdl"]
 uuid = "8f36deef-c2a5-5394-99ed-8e07531fb29a"
 
+[[deps.libgifextra_jll]]
+deps = ["Artifacts", "Giflib_jll", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "13d2dff7529343ec98296f092082a2ae8aa6f0cf"
+uuid = "d7c3d077-fdb7-5318-9663-3e6817e0e281"
+version = "0.0.1+0"
+
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
