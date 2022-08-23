@@ -1,7 +1,3 @@
-using ColorTypes
-using ColorVectorSpace
-using FixedPointNumbers
-using FileIO
 
 """
     gif_decode(filepath::AbstractString; use_localpalette=false)
