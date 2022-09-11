@@ -27,27 +27,27 @@ function gif_encode(filepath::AbstractString, img::AbstractArray; colormapnum::I
     error = Cint(0)
     gif_file = LibGif.EGifOpenFileName(filepath, 0, Ref(error))
     colors = []
-    
+
     gif_file == C_NULL && error("EGifOpenFileName() failed to open the gif file: null pointer")
     
     # checks if colormapnum is in valid range
     if (colormapnum < 1 || colormapnum > 256)
         error("colormapnum is out of range and needs to be in range 1-256(both inclusive)")
     end
-    
+
     # generation of a colormap
-    quantization!(img, colormapnum)
-    append!(colors, unique(vec(img)))
-    
+    palette = octreequantisation!(img; numcolors=colormapnum, return_palette=true)
+    append!(colors, palette)
+
     mapping = Dict()
     for (i, j) in enumerate(colors)
         mapping[j] = UInt8(i)
     end
-    
+
     # defining the global colormap
     colors = map(x -> LibGif.GifColorType(x.r, x.g, x.b), colors * 255)
     colormap = LibGif.GifMakeMapObject(colormapnum, colors)
-    
+
     # features of the file
     gif_file.SWidth = size(img)[2]
     gif_file.SHeight = size(img)[1]
@@ -60,13 +60,13 @@ function gif_encode(filepath::AbstractString, img::AbstractArray; colormapnum::I
         # flatten the image
         img1 = vec(img[:, :, i]')
         pix = map(x -> mapping[x], img1)
-    
+
         # saving a new image in gif_file
         desc = LibGif.GifImageDesc(0, 0, size(img)[2], size(img)[1], 0, C_NULL)
         c = LibGif.SavedImage(desc, pointer(pix), 0, C_NULL)
         LibGif.GifMakeSavedImage(gif_file, Ref(c))
     end
-    
+
     # writing and closing the file
     if (LibGif.EGifSpew(gif_file) == LibGif.GIF_ERROR)
         error("Failed to write to file!")

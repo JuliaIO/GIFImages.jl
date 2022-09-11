@@ -8,12 +8,16 @@ using .LibGifExtra
 using ColorTypes
 using ColorVectorSpace
 using FixedPointNumbers
-using FileIO
-using Noise
+using StatsBase
+using RegionTrees, StaticArrays
+
 
 include("decode.jl")
 include("encode.jl")
+include("quantizers.jl")
 
 export gif_decode, gif_encode
+export split_buckets, mediancut!, mediancut
+export octreequantisation, octreequantisation!
 
 end # module
