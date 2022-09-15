@@ -205,21 +205,31 @@ mutable struct kdtreenode
 end
 
 
-function kdtreequantisation(img::AbstractArray; numcolors::Int = 256)
-    data = vec(img)
-    inds = collect(1:length(data))
-    pq = PriorityQueue(Base.Order.Reverse)
-    link = Dict(1 => "r", 2 => "g", 3 => "b")
+function kdtreequantisation!(img::AbstractArray; numcolors::Int = 256, precheck::Bool=false, return_palette=false)
+    # checks if image has more colors than in numcolors
+    if precheck ==  true
+        unumcolors = length(unique(numcolors))
+        if unumcolors < numcolors
+            return img
+        end 
+    end
 
-    variance(edges, count) = sum(((edges .- mean(edges)) .^ 2) .* count / (sum(count) - 1))
+    # basic setup of img data, PriorityQueue to maintain variances for making splits
+    n_channels = length(channelview([img[1]]))
+    data = collect(reshape(channelview(img), n_channels, :))
+    inds = collect(1:length(img))
+    pq = PriorityQueue(Base.Order.Reverse)
+    
+    variance(edges::AbstractRange, count::AbstractArray) = sum((((edges .- mean(edges)) .^ 2) .* count) / (sum(count) - 1))
+
+    # To calculate max variance along a axis
     function varmax(inds::Vector{Int})
-        data1 = channelview(data[inds])
         maxval = -Inf
         ind = 0
         edgesd = 0
-        for i = 1:3
+        for i = 1:n_channels
             # error that needs to be fixed ArgumentError: reducing over an empty collection is not allowed
-            edges, count = HistogramThresholding.build_histogram(data1[i, :], 256)
+            edges, count = build_histogram(data[i,inds], 256)
             t = Otsu_N(count[1:end], edges)
             v1 = variance(edges[1:t], count[1:t])
             v2 = variance(edges[t:end], count[t:end])
@@ -231,34 +241,56 @@ function kdtreequantisation(img::AbstractArray; numcolors::Int = 256)
                 edgesd = edges[t]
             end
         end
-        return maxval, Int(ind), edgesd
+        return maxval, ind, edgesd
     end
 
-    maxval, ind, edgesd = varmax(inds)
-    root = kdtreenode(inds, ind, edgesd, nothing, nothing)
-    enqueue!(pq, root => maxval)
+    # To split of a node into its children based on max variance reduction infromation
+    function split(x)
+        indsleft = Vector{Int}([])
+        indsright = Vector{Int}([])
+        for i in x.inds
+            if data[:,i][x.axis] <= x.splitpoint
+                push!(indsleft, i)
+            else
+                push!(indsright, i)
+            end
+        end
+        return indsleft, indsright
+    end
+
+    # root of tree set up
+    maxvar, axis, splitpoint = varmax(inds)
+    root = kdtreenode(inds, axis, splitpoint, nothing, nothing)
+    enqueue!(pq, root => maxvar)
 
     while length(pq) < numcolors
-        # split one with highest variance change
-        x = dequeue!(pq)
-        indsleft = filter(z -> getproperty(data[z], Symbol(link[x.axis])) <= x.splitpoint, x.inds)
-        indsright = filter(z -> getproperty(data[z], Symbol(link[x.axis])) > x.splitpoint, x.inds)
-        empty!(x.inds)
-
-        maxvall, indl, edgesdl = varmax(indsleft)
-        maxvalr, indr, edgesdr = varmax(indsright)
-        x.leftChild = kdtreenode(indsleft, indl, edgesdl, nothing, nothing)
-        x.rightChild = kdtreenode(indsright, indr, edgesdr, nothing, nothing)
-        enqueue!(pq, x.leftChild => maxvall)
-        enqueue!(pq, x.rightChild => maxvalr)
+        # split using axis with highest variance change
+        x, maxvar = dequeue_pair!(pq)
+        if maxvar == 0
+            @info "Variance dropped to 0 while splitting, number of colors in Image: $(length(pq))"
+            break
+        end
+        indsleft, indsright = split(x)
+        maxvar, axis, splitpoint = varmax(indsleft)
+        enqueue!(pq, kdtreenode(indsleft, axis, splitpoint, nothing, nothing) => maxvar)
+        maxvar, axis, splitpoint = varmax(indsright)
+        enqueue!(pq, kdtreenode(indsright, axis, splitpoint, nothing, nothing) => maxvar)
     end
-    numcol = length(pq)
 
+    # Update the image
+    numcol = length(pq)
+    if return_palette == true colors = [] end
     for i = 1:numcol
         x = dequeue!(pq)
-        color = mean(img[x.inds])
+        color = eltype(img).(mean(img[x.inds]))
+        if return_palette == true push!(colors, color) end
         img[x.inds] .= color
     end
+    if return_palette == true return colors end
+end
 
-    return img
+function kdtreequantisation(img; kwargs...)
+    img_copy = deepcopy(img)
+    kdtreequantisation!(img_copy; kwargs...)
+    return img_copy
 end

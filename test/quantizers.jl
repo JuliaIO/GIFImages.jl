@@ -19,12 +19,12 @@
 
     @testset "KDtree Color Quantizer" begin
         img = gif_decode(get_example("fire.gif"))
-        kdtreequantisation(img; numcolors=32)
+        kdtreequantisation!(img; numcolors=32)
         @test length(unique(img)) == 32
 
         # has around 15k colors n color quantiser brings it to 256 
         img = testimage("mandrill")
-        kdtreequantisation(img; numcolors=256)
+        kdtreequantisation!(img; numcolors=256)
         @test length(unique(img)) == 256
     end
 end

@@ -22,6 +22,6 @@ include("quantizers.jl")
 export gif_decode, gif_encode
 export split_buckets, mediancut!, mediancut
 export octreequantisation, octreequantisation!
-export Otsu_N, kdtreequantisation
+export kdtreequantisation, kdtreequantisation!
 
 end # module
