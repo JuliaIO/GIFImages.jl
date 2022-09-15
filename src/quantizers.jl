@@ -151,3 +151,114 @@ function octreequantisation(img; kwargs...)
     octreequantisation!(img1; kwargs...)
     return img1
 end
+
+
+function Otsu_N(histogram::AbstractArray, edges::AbstractRange)
+    N = sum(histogram)
+    pdf = histogram / N
+    first_bin = firstindex(pdf)
+    last_bin = lastindex(pdf)
+    cumulative_zeroth_moment = cumsum(pdf)
+    cumulative_first_moment = cumsum(float(edges) .* pdf)
+    μ_T = cumulative_first_moment[end]
+    maxval = zero(eltype(first(pdf)))
+
+    # Equation (6) for determining the probability of the first class.
+    function ω(k)
+        let cumulative_zeroth_moment = cumulative_zeroth_moment
+            return cumulative_zeroth_moment[k]
+        end
+    end
+
+    # Equation (7) for determining the mean of the first class.
+    function μ(k)
+        let cumulative_first_moment = cumulative_first_moment
+            return cumulative_first_moment[k]
+        end
+    end
+
+    # Equation (18) for determining the between-cass variance.
+    function σ²(k)
+        let μ_T = μ_T
+            return (μ_T * ω(k) - μ(k))^2 / (ω(k) * (1 - ω(k)))
+        end
+    end
+
+    t = first_bin
+    for k = first_bin:last_bin-1
+        val = σ²(k)
+        if val > maxval
+            maxval = val
+            t = k
+        end
+    end
+    return t
+end
+
+
+mutable struct kdtreenode
+    inds::Vector{Int}
+    axis::Int
+    splitpoint::Float64
+    leftChild::Union{kdtreenode,Nothing}
+    rightChild::Union{kdtreenode,Nothing}
+end
+
+
+function kdtreequantisation(img::AbstractArray; numcolors::Int = 256)
+    data = vec(img)
+    inds = collect(1:length(data))
+    pq = PriorityQueue(Base.Order.Reverse)
+    link = Dict(1 => "r", 2 => "g", 3 => "b")
+
+    variance(edges, count) = sum(((edges .- mean(edges)) .^ 2) .* count / (sum(count) - 1))
+    function varmax(inds::Vector{Int})
+        data1 = channelview(data[inds])
+        maxval = -Inf
+        ind = 0
+        edgesd = 0
+        for i = 1:3
+            # error that needs to be fixed ArgumentError: reducing over an empty collection is not allowed
+            edges, count = HistogramThresholding.build_histogram(data1[i, :], 256)
+            t = Otsu_N(count[1:end], edges)
+            v1 = variance(edges[1:t], count[1:t])
+            v2 = variance(edges[t:end], count[t:end])
+            vt = variance(edges[1:end], count[1:end])
+            curr = vt - v1 - v2
+            if (curr > maxval)
+                maxval = curr
+                ind = i
+                edgesd = edges[t]
+            end
+        end
+        return maxval, Int(ind), edgesd
+    end
+
+    maxval, ind, edgesd = varmax(inds)
+    root = kdtreenode(inds, ind, edgesd, nothing, nothing)
+    enqueue!(pq, root => maxval)
+
+    while length(pq) < numcolors
+        # split one with highest variance change
+        x = dequeue!(pq)
+        indsleft = filter(z -> getproperty(data[z], Symbol(link[x.axis])) <= x.splitpoint, x.inds)
+        indsright = filter(z -> getproperty(data[z], Symbol(link[x.axis])) > x.splitpoint, x.inds)
+        empty!(x.inds)
+
+        maxvall, indl, edgesdl = varmax(indsleft)
+        maxvalr, indr, edgesdr = varmax(indsright)
+        x.leftChild = kdtreenode(indsleft, indl, edgesdl, nothing, nothing)
+        x.rightChild = kdtreenode(indsright, indr, edgesdr, nothing, nothing)
+        enqueue!(pq, x.leftChild => maxvall)
+        enqueue!(pq, x.rightChild => maxvalr)
+    end
+    numcol = length(pq)
+
+    for i = 1:numcol
+        x = dequeue!(pq)
+        color = mean(img[x.inds])
+        img[x.inds] .= color
+    end
+
+    return img
+end
