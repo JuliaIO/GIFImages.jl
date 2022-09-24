@@ -44,70 +44,101 @@ function split_buckets(img, data, depth)
 end
 
 
-function mediancut!(img, max = 6)
+function mediancutquantisation!(img; numcolors = 256, precheck::Bool=false)
+    if(eltype(img)!=RGB{N0f8})
+        error("Median Cut Algorithm requires img to be in RGB colorspace currently")
+    end
+    # checks if image has more colors than in numcolors
+    if precheck ==  true
+        unumcolors = length(unique(img))
+        # @show unumcolors
+        if unumcolors <= numcolors
+            @debug "Image has $unumcolors unique colors"
+            return unique(img)
+        end 
+    end
+
     data = map(x -> x, enumerate(vec(img)))
-    split_buckets(img, data, max)
+    split_buckets(img, data, log2(numcolors))
 end
 
-function mediancut(img, max = 6)
+function mediancutquantisation(img;kwargs...)
     img1 = deepcopy(img)
-    mediancut!(img1, max)
+    mediancutquantisation!(img1;kwargs...)
     return img1
 end
 
-function putin(root, in)
-    color_in = in[2]
-    r, g, b = map(p->bitstring(UInt8(p*255)), [color_in.r, color_in.g, color_in.b])
 
-    # finding the entry to the tree
-    ind = 0
-    for i = 1:8
-        if (root.children[i].data[1] == r[1] * g[1] * b[1])
-            root.children[i].data[2] += 1
-            ind = i
-            break
-        end
+
+function octreequantisation!(img; numcolors = 256, precheck::Bool=false)
+    # ensure the img is in RGB colorspace
+    if(eltype(img)!=RGB{N0f8})
+        error("Octree Algorithm requires img to be in RGB colorspace")
     end
-    curr = root.children[ind]
-    
-    for i = 2:8
-        cases = map(p->[bitstring(UInt8(p))[6:end], 0, Vector{Int}([]), RGB{N0f8}.(0.0,0.0,0.0), i], 1:8)
-        if (isleaf(curr) == true && i < 8) split!(curr, cases) end
-        if (i == 8)
-            if (isleaf(curr) == true) split!(curr, cases) end
-            for j = 1:8
-                if (curr.children[j].data[1] ==  r[i] * g[i] * b[i])
-                    curr = curr.children[j]
-                    curr.data[2] += 1
-                    push!(curr.data[3], in[1])
-                    curr.data[4] = in[2]
-                    return
-                end
-            end
-        end
 
-        # handle 1:7 cases for rgb to handle first seven bits
-        for j = 1:8
-            if (curr.children[j].data[1] ==  r[i] * g[i] * b[i])
-                curr.children[j].data[2] += 1
-                curr = curr.children[j]
-                break
-            end
-        end
+    # checks if image has more colors than in numcolors
+    if precheck ==  true
+        unumcolors = length(unique(img))
+        # @show unumcolors
+        if unumcolors <= numcolors
+            @debug "Image has $unumcolors unique colors"
+            return unique(img)
+        end 
     end
-end
 
-
-function octreequantisation!(img; numcolors = 256, return_palette = false )
     # step 1: creating the octree
     root = Cell(SVector(0.0, 0.0, 0.0), SVector(1.0, 1.0, 1.0), ["root", 0, [], RGB{N0f8}.(0.0, 0.0, 0.0), 0])
     cases = map(p->[bitstring(UInt8(p))[6:end], 0, Vector{Int}([]), RGB{N0f8}.(0.0,0.0,0.0), 1], 1:8)
     split!(root, cases)
-    for i in enumerate(img)
+    inds = collect(1:length(img))
+
+    function putin(root, in)
+        r, g, b = map(p->bitstring(UInt8(p*255)), channelview([img[in]]))
+        rgb = r[1] * g[1] * b[1]
+        # finding the entry to the tree
+        ind = 0
+        for i = 1:8
+            if (root.children[i].data[1] == rgb)
+                root.children[i].data[2] += 1
+                ind = i
+                break
+            end
+        end
+        curr = root.children[ind]
+
+        for i = 2:8
+            cases = map(p->[bitstring(UInt8(p))[6:end], 0, Vector{Int}([]), RGB{N0f8}.(0.0,0.0,0.0), i], 1:8)
+            rgb = r[i] * g[i] * b[i]
+            if (isleaf(curr) == true && i <= 8) split!(curr, cases) end
+            if (i == 8)
+                for j = 1:8
+                    if (curr.children[j].data[1] == rgb)
+                        curr = curr.children[j]
+                        curr.data[2] += 1
+                        push!(curr.data[3], in)
+                        curr.data[4] = img[in]
+                        return
+                    end
+                end
+            end
+
+            # handle 1:7 cases for rgb to handle first seven bits
+            for j = 1:8
+                if (curr.children[j].data[1] ==  rgb)
+                    curr.children[j].data[2] += 1
+                    curr = curr.children[j]
+                    break
+                end
+            end
+        end
+    end
+
+    # build the tree
+    for i in inds
         root.data[2]+=1
         putin(root, i)
     end
-    
+     
     # step 2: reducing tree to a certain number of colors
     # there is scope for improvements in allleaves as it's found again n again
     leafs = [p for p  in allleaves(root)]
@@ -118,6 +149,7 @@ function octreequantisation!(img; numcolors = 256, return_palette = false )
         parents = unique([parent(p) for p in leafs])
         parents = sort(parents; by = c -> c.data[2])
         tobe_reduced = parents[1]
+        # @show tobe_reduced.data
 
         for i = 1:8
             append!(tobe_reduced.data[3], tobe_reduced.children[i].data[3])
@@ -139,17 +171,14 @@ function octreequantisation!(img; numcolors = 256, return_palette = false )
         end
     end
 
-    if return_palette == true
-        colors = [p[4] for p in da]
-        return colors
-    end
+    colors = [p[4] for p in da]
+    return colors
 end
 
 function octreequantisation(img; kwargs...)
-    img1 = deepcopy(img)
-    # possible error likely here to return palette kwarg
-    octreequantisation!(img1; kwargs...)
-    return img1
+    img_copy = deepcopy(img)
+    palette = octreequantisation!(img_copy; kwargs...)
+    return img_copy, palette
 end
 
 
@@ -205,12 +234,18 @@ mutable struct kdtreenode
 end
 
 
-function kdtreequantisation!(img::AbstractArray; numcolors::Int = 256, precheck::Bool=false, return_palette=false)
+function kdtreequantisation!(img::AbstractArray; numcolors::Int = 256, precheck::Bool=false)
+    # ensure the img is in RGB colorspace
+    if(eltype(img)!=RGB{N0f8})
+        error("KDtree Algorithm requires img to be in RGB colorspace currently")
+    end
     # checks if image has more colors than in numcolors
     if precheck ==  true
-        unumcolors = length(unique(numcolors))
-        if unumcolors < numcolors
-            return img
+        unumcolors = length(unique(img))
+        # @show unumcolors
+        if unumcolors <= numcolors
+            @debug "Image has $unumcolors unique colors"
+            return unique(img)
         end 
     end
 
@@ -231,10 +266,7 @@ function kdtreequantisation!(img::AbstractArray; numcolors::Int = 256, precheck:
             # error that needs to be fixed ArgumentError: reducing over an empty collection is not allowed
             edges, count = build_histogram(data[i,inds], 256)
             t = Otsu_N(count[1:end], edges)
-            v1 = variance(edges[1:t], count[1:t])
-            v2 = variance(edges[t:end], count[t:end])
-            vt = variance(edges[1:end], count[1:end])
-            curr = vt - v1 - v2
+            curr = variance(edges[1:end], count[1:end]) - variance(edges[1:t], count[1:t])- variance(edges[t:end], count[t:end])
             if (curr > maxval)
                 maxval = curr
                 ind = i
@@ -267,7 +299,7 @@ function kdtreequantisation!(img::AbstractArray; numcolors::Int = 256, precheck:
         # split using axis with highest variance change
         x, maxvar = dequeue_pair!(pq)
         if maxvar == 0
-            @info "Variance dropped to 0 while splitting, number of colors in Image: $(length(pq))"
+            @debug "Variance dropped to 0 while splitting, number of colors in Image: $(length(pq))"
             break
         end
         indsleft, indsright = split(x)
@@ -279,18 +311,18 @@ function kdtreequantisation!(img::AbstractArray; numcolors::Int = 256, precheck:
 
     # Update the image
     numcol = length(pq)
-    if return_palette == true colors = [] end
+    colors = Vector{eltype(img)}([])
     for i = 1:numcol
         x = dequeue!(pq)
         color = eltype(img).(mean(img[x.inds]))
-        if return_palette == true push!(colors, color) end
+        push!(colors, color)
         img[x.inds] .= color
     end
-    if return_palette == true return colors end
+    return colors
 end
 
 function kdtreequantisation(img; kwargs...)
     img_copy = deepcopy(img)
-    kdtreequantisation!(img_copy; kwargs...)
-    return img_copy
+    palette = kdtreequantisation!(img_copy; kwargs...)
+    return img_copy, palette
 end

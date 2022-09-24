@@ -20,7 +20,7 @@ include("encode.jl")
 include("quantizers.jl")
 
 export gif_decode, gif_encode
-export split_buckets, mediancut!, mediancut
+export mediancutquantisation, mediancutquantisation!
 export octreequantisation, octreequantisation!
 export kdtreequantisation, kdtreequantisation!
 

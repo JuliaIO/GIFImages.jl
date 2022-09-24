@@ -24,24 +24,28 @@ julia> gif_encode("fire.gif", img)
 ```
 """
 function gif_encode(filepath::AbstractString, img::AbstractArray; colormapnum::Int = 256)
+    
+    if(eltype(img)!= RGB{N0f8})
+        throw(ErrorException("gif_encode requires img to be in RGB{N0f8} colorspace currently"))
+    end
+    
     error = Cint(0)
     gif_file = LibGif.EGifOpenFileName(filepath, 0, Ref(error))
     colors = []
+    shape = size(img)
 
-    gif_file == C_NULL && error("EGifOpenFileName() failed to open the gif file: null pointer")
+    gif_file == C_NULL && throw(ErrorException("EGifOpenFileName() failed to open the gif file: null pointer"))
+    (colormapnum < 1 || colormapnum > 256) && throw(ErrorException("colormapnum is out of range and needs to be in range 1-256(both inclusive)"))
+    (ndims(img) != 3) && throw(DimensionMismatch("Image Array needs to be in Height, Width, NumImages format."))
     
-    # checks if colormapnum is in valid range
-    if (colormapnum < 1 || colormapnum > 256)
-        error("colormapnum is out of range and needs to be in range 1-256(both inclusive)")
-    end
-
     # generation of a colormap
-    palette = octreequantisation!(img; numcolors=colormapnum, return_palette=true)
+    # this changes the image directly for now
+    palette = kdtreequantisation!(img; numcolors=colormapnum, precheck=true)
     append!(colors, palette)
 
     mapping = Dict()
     for (i, j) in enumerate(colors)
-        mapping[j] = UInt8(i)
+        mapping[j] = UInt8(i-1)
     end
 
     # defining the global colormap
@@ -49,14 +53,14 @@ function gif_encode(filepath::AbstractString, img::AbstractArray; colormapnum::I
     colormap = LibGif.GifMakeMapObject(colormapnum, colors)
 
     # features of the file
-    gif_file.SWidth = size(img)[2]
-    gif_file.SHeight = size(img)[1]
+    gif_file.SWidth = shape[2]
+    gif_file.SHeight = shape[1]
     gif_file.SColorResolution = 8
     gif_file.SBackGroundColor = 0
     gif_file.SColorMap = colormap
     
-    # encoding
-    for i = 1:size(img)[3]
+    # encoding # case of 512*512
+    for i = 1:shape[3]
         # flatten the image
         img1 = vec(img[:, :, i]')
         pix = map(x -> mapping[x], img1)
@@ -69,6 +73,6 @@ function gif_encode(filepath::AbstractString, img::AbstractArray; colormapnum::I
 
     # writing and closing the file
     if (LibGif.EGifSpew(gif_file) == LibGif.GIF_ERROR)
-        error("Failed to write to file!")
+        throw(ErrorException("Failed to write to file!"))
     end
 end
