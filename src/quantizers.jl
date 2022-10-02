@@ -1,49 +1,5 @@
 # In this file, we have the color quantisation algorithms
 
-function split_buckets(img, data, depth)
-    if length(data) == 0 return end
-
-    # Buckets are same size,
-    # means that each colors is assigned to
-    # equal number of pixels here.
-    if depth == 0
-        # this behavior is interesting of N0f8
-        # and of floats as it's messing up results
-        avg = RGB{N0f8}.(mean(map(x -> x[2], data)))
-        map(x -> img[x[1]] = avg, data)
-        return
-    end
-
-    # find range of colors and pick color which
-    # most difference in max val and min val
-    rmin, rmax = 1.0N0f8, 0.0N0f8
-    gmin, gmax = 1.0N0f8, 0.0N0f8
-    bmin, bmax = 1.0N0f8, 0.0N0f8
-    for (idx, color) in data
-        if (color.r > rmax) rmax = color.r end
-        if (color.g > gmax) gmax = color.g end
-        if (color.b > bmax) bmax = color.b end
-        if (color.r < rmin) rmin = color.r end
-        if (color.g < gmin) gmin = color.g end
-        if (color.b < bmin) bmin = color.b end
-    end
-
-    ind = findmax([rmax - rmin, gmax - gmin, bmax - bmin])[2]
-
-    # sort on basis of max range color
-    if ind == 1 sort!(data; by = c -> c[2].r)
-    elseif ind == 2 sort!(data; by = c -> c[2].g)
-    elseif ind == 3 sort!(data; by = c -> c[2].b) end
-
-    # start diving on basis of median index
-    medind = trunc(Int, (length(data) + 1) / 2)
-
-    # two separate buckets
-    split_buckets(img, data[1:medind], depth - 1)
-    split_buckets(img, data[medind+1:end], depth - 1)
-end
-
-
 function mediancutquantisation!(img; numcolors = 256, precheck::Bool=false)
     if(eltype(img)!=RGB{N0f8})
         error("Median Cut Algorithm requires img to be in RGB colorspace currently")
@@ -58,8 +14,52 @@ function mediancutquantisation!(img; numcolors = 256, precheck::Bool=false)
         end 
     end
 
-    data = map(x -> x, enumerate(vec(img)))
-    split_buckets(img, data, log2(numcolors))
+    idxs = collect(1:length(img))
+    function split_buckets(idxs, depth)
+        if length(idxs) == 0 return end
+        color = RGB.(0,0,0)
+
+        # Buckets are same size,
+        # means that each colors is assigned to
+        # equal number of pixels here.
+        if depth == 0
+            color = RGB{N0f8}.(mean(img[idxs]))
+            img[idxs] .= color
+            return
+        end
+
+        # find range of colors and pick color which
+        # most difference in max val and min val
+        rmin, rmax = 1.0N0f8, 0.0N0f8
+        gmin, gmax = 1.0N0f8, 0.0N0f8
+        bmin, bmax = 1.0N0f8, 0.0N0f8
+        
+        for idx in idxs
+            color = img[idx]
+            if (color.r > rmax) rmax = color.r end
+            if (color.g > gmax) gmax = color.g end
+            if (color.b > bmax) bmax = color.b end
+            if (color.r < rmin) rmin = color.r end
+            if (color.g < gmin) gmin = color.g end
+            if (color.b < bmin) bmin = color.b end
+        end
+
+        ind = findmax([rmax - rmin, gmax - gmin, bmax - bmin])[2]
+
+        # sort on basis of max range color
+        if ind == 1 sort!(idxs; by = c -> img[c].r)
+        elseif ind == 2 sort!(idxs; by = c -> img[c].g)
+        elseif ind == 3 sort!(idxs; by = c -> img[c].b) end
+
+        # start diving on basis of median index
+        medind = trunc(Int, (length(idxs) + 1) / 2)
+
+        # two separate buckets
+        split_buckets(@view(idxs[1:medind]), depth - 1)
+        split_buckets(@view(idxs[medind+1:end]), depth - 1)
+    end
+
+    split_buckets(idxs, log2(numcolors))
 end
 
 function mediancutquantisation(img;kwargs...)

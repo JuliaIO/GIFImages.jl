@@ -56,10 +56,13 @@ using ImageQualityIndexes
     @testset "Other Exceptions" begin
         # colormap number out of range
         img = gif_decode(get_example("x-trans.gif"))
-        @test_throws ErrorException gif_encode("test12.gif", img; colormapnum= 270)
+        @test_throws BoundsError gif_encode("test12.gif", img; colormapnum= 270)
 
         # dimension error
         img = testimage("mandrill")
         @test_throws DimensionMismatch gif_encode("test12.gif", img)
+
+        img = gif_decode(get_example("welcome2.gif"))
+        @test_throws ErrorException gif_encode("", img)
     end
 end
