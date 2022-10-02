@@ -1,7 +1,3 @@
-using ColorTypes
-using ColorVectorSpace
-using FixedPointNumbers
-using FileIO
 
 """
     gif_decode(filepath::AbstractString; use_localpalette=false)
@@ -23,8 +19,8 @@ julia> img = gif_decode(path)
 60×30×33 Array{RGB{N0f8},3} with eltype RGB{N0f8}
 """
 function gif_decode(filepath::AbstractString; use_localpalette=false)
-    error = Cint(0)
-    gif = LibGif.DGifOpenFileName(filepath, Ref(error))
+    error1 = Cint(0)
+    gif = LibGif.DGifOpenFileName(filepath, Ref(error1))
 
     try
         gif == C_NULL && error("failed to open the gif file: null pointer")
@@ -72,6 +68,6 @@ function gif_decode(filepath::AbstractString; use_localpalette=false)
         # return the final matrix
         return final
     finally
-        LibGif.DGifCloseFile(gif, Ref(error))
+        LibGif.DGifCloseFile(gif, Ref(error1))
     end
 end
