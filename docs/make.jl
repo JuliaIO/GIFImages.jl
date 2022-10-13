@@ -1,14 +1,19 @@
+push!(LOAD_PATH,"../src/")
 using GIFImages
 using Documenter
 
-format = Documenter.HTML(
-    prettyurls = get(ENV, "CI", nothing) == "true"
-)
+DocMeta.setdocmeta!(GIFImages, :DocTestSetup, :(using GIFImages); recursive=true)
 
 makedocs(;
     modules=[GIFImages],
+    authors="Ashwani Rathee",
+    repo="github.com/ashwani-rathee/GIFImages.jl/blob/{commit}{path}#{line}",
     sitename="GIFImages.jl",
-    format=format,
+    format=Documenter.HTML(;
+        prettyurls=Base.get(ENV, "CI", "false") == "true",
+        canonical="https://ashwani-rathee.github.io/GIFImages.jl",
+        assets=String[],
+    ),
     pages=[
         "Home" => "index.md",
     ],
@@ -16,5 +21,6 @@ makedocs(;
 
 deploydocs(;
     repo="github.com/ashwani-rathee/GIFImages.jl",
-    devbranch="master",
-)
+    devbranch="main",
+    push_preview = true
+) 
