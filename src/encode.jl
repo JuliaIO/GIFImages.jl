@@ -11,7 +11,7 @@ Encode the GIF colorant matrix to file.
 - `colormapnum` : Specifies the number of colors to be used for the global colormap
 
 ### Examples
-```jldoctest
+```jl
 julia> using GIFImages, Downloads
 
 julia> path = "test/data/fire.gif"
