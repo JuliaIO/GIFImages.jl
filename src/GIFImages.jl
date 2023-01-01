@@ -17,6 +17,7 @@ using ImageCore
 
 include("decode.jl")
 include("encode.jl")
+include("fileio.jl")
 include("quantizers.jl")
 
 export gif_decode, gif_encode
